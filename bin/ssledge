@@ -1,0 +1,157 @@
+#!/bin/bash
+
+ROOT_DIR=$(dirname $(dirname $(realpath ${0})))
+PID_FILE="${ROOT_DIR}/ssledge.pid"
+SSLEDGE_BIN="${ROOT_DIR}/bin/ssledge-term-$(uname -m)"
+
+PROXY_CONFIG_DIR="${ROOT_DIR}/proxy.d"
+PROXY_PROXY_LIST="${PROXY_CONFIG_DIR}/proxy_list"
+PROXY_CURRENT_CONFIG="${PROXY_CONFIG_DIR}/current.config"
+
+source ${ROOT_DIR}/ssledge.conf
+
+
+function ifFailed()
+{
+    local code=${?}
+    [[ ${code} == 0 ]] && echo -e "Success" || echo -e "Failed"
+}
+
+# ================ refresh  ===================
+
+function __changeConfig__()
+{
+    sed -i 's/global/global\n\tssl-server-verify none/' $@
+    sed -i "s/bind .*:[0-9]*/bind ${bindhost}:${bindport}/" $@
+}
+
+function ssledgeRefresh()
+{
+    local host="https://api.0x110.com"
+    local config_list_path="/ssledge/sgp.php?s"
+
+    echo -ne "Get Proxy List..."
+
+    local page=$(curl -s -u ${username}:${password} ${host}${config_list_path} 2> /dev/null)
+    ifFailed
+
+    echo ${page} \
+        | sed 's/<br \/>/\n/g' \
+        | egrep '^.*&lt;' \
+        | sed 's/^.*&lt;\(.*\)&gt; Host: \(.*\) Port: \([0-9]*\).*/\1|\2|\3/' \
+        | sed 's/ /-/g' \
+        | awk '{print NR "|" $0}' \
+        > ${PROXY_PROXY_LIST} 
+
+    for proxy in $(cat ${PROXY_PROXY_LIST})
+    do
+        local p_nu=$(echo ${proxy} | cut -d '|' -f 1)
+        local p_name=$(echo ${proxy} | cut -d '|' -f 2)
+        local p_host=$(echo ${proxy} | cut -d '|' -f 3)
+        local p_port=$(echo ${proxy} | cut -d '|' -f 4)
+
+        local p_file="${PROXY_CONFIG_DIR}/proxy_${p_nu}.config"
+        local p_path="${host}/ssledge/sgp.php?s&dl&h=${p_host}&p=${p_port}"
+
+        echo -ne "Get ${p_name}..."
+        curl -s -u ${username}:${password} "${p_path}" -o ${p_file} 2> /dev/null 
+        ifFailed
+
+        __changeConfig__ ${p_file}
+    done
+}
+
+# ================ Set ======================
+function ssledgeSet()
+{
+    rm ${PROXY_CURRENT_CONFIG} &> /dev/null
+    ln -s ${PROXY_CONFIG_DIR}/proxy_${1}.config ${PROXY_CURRENT_CONFIG}
+}
+
+# ================ List ==================
+function ssledgeList()
+{
+    echo -ne "current: "
+    echo $(realpath ${PROXY_CURRENT_CONFIG} | sed 's/.*proxy_\([0-9]*\)\.config/\1/')
+
+
+    echo "proxys: "
+    for proxy in $(cat ${PROXY_PROXY_LIST})
+    do
+        echo -en "\t"
+        echo ${proxy} | cut -d '|' -f 1,2 | tr '|' "\t"
+    done
+}
+
+# ================  On/Off/Status ===================
+function ssledgeOn()
+{
+    echo -ne "SSLedge Switch On..."
+    kill -9 $(cat ${PID_FILE} 2> /dev/null ) &> /dev/null
+    ${SSLEDGE_BIN} -p ${PID_FILE} -f ${PROXY_CURRENT_CONFIG} -D
+    ifFailed
+}
+
+function ssledgeOff()
+{
+    echo -ne "SSLedge Switch Off..."
+    kill -9 $(cat ${PID_FILE} 2> /dev/null ) &> /dev/null
+    ifFailed
+}
+
+function ssledgeStatus()
+{
+    echo -ne "Status: "
+    if ps -p $(cat ${PID_FILE} 2>/dev/null) &> /dev/null
+    then
+        echo "ON"
+    else
+        echo "OFF"
+    fi
+}
+
+
+# ================  Usage  ===================
+function showUsage()
+{
+    local BASENAME=$(basename ${0})
+    echo -e \ "
+    usage:
+        ${BASENAME} <option> [value]
+
+    option: 
+        on              trun on proxy
+        off             trun off proxy
+        status          show proxy run status
+        refresh         refresh proxy config
+        list            list all proxy config
+        current         show current proxy config
+        set             select proxy config
+    "
+}
+
+CMD=${1} && shift
+case ${CMD} in
+    "on" )
+        ssledgeOn
+        ;;
+    "off" )
+        ssledgeOff
+        ;;
+    "status" )
+        ssledgeStatus
+        ;;
+    "refresh" )
+        ssledgeRefresh
+        ;;
+    "list" )
+        ssledgeList
+        ;;
+    "set" )
+        ssledgeSet $@
+        ;;
+    * )
+        showUsage
+        exit 1
+        ;;
+esac
