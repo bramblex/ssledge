@@ -1,0 +1,8 @@
+
+#[User Config]
+username="username"
+password="password"
+
+#[Proxy Config]
+host="127.0.0.1"
+port="16808"
