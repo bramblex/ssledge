@@ -4,5 +4,5 @@ username="username"
 password="password"
 
 #[Proxy Config]
-host="127.0.0.1"
-port="16808"
+bindhost="127.0.0.1"
+bindport="16808"
