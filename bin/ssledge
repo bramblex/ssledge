@@ -1,5 +1,6 @@
 #!/bin/bash
 
+THIS=$(realpath ${0})
 ROOT_DIR=$(dirname $(dirname $(realpath ${0})))
 PID_FILE="${ROOT_DIR}/ssledge.pid"
 SSLEDGE_BIN="${ROOT_DIR}/bin/ssledge-term-$(uname -m)"
@@ -110,6 +111,22 @@ function ssledgeStatus()
     fi
 }
 
+# =========== makeDesktopEntry ===============
+function ssledgeMkDesktop()
+{
+    local destop_entry="${ROOT_DIR}/ssledge.desktop"
+
+    cat > ${destop_entry} << EOF
+[Desktop Entry]
+Type=Application
+Icon=network-online
+Name=SSLedge ON
+Exec=bash -c "${THIS} on && notify-send 'SSLedge' 'Switch ON' -i 'network-online'"
+Hidden=false
+EOF
+    chmod u+x ${destop_entry}
+}
+
 
 # ================  Usage  ===================
 function showUsage()
@@ -127,6 +144,7 @@ function showUsage()
         list            list all proxy config
         current         show current proxy config
         set             select proxy config
+        mkdesktop       make a desktop entry to switch on
     "
 }
 
@@ -149,6 +167,9 @@ case ${CMD} in
         ;;
     "set" )
         ssledgeSet $@
+        ;;
+    "mkdesktop" )
+        ssledgeMkDesktop
         ;;
     * )
         showUsage
