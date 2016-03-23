@@ -19,7 +19,6 @@ function ifFailed()
 }
 
 # ================ refresh  ===================
-
 function __changeConfig__()
 {
     sed -i 's/global/global\n\tssl-server-verify none/' $@
@@ -124,9 +123,17 @@ Name=SSLedge ON
 Exec=bash -c "${THIS} on && notify-send 'SSLedge' 'Switch ON' -i 'network-online'"
 Hidden=false
 EOF
-    chmod u+x ${destop_entry}
 }
 
+# ================  ssledgeCmd ===================
+function ssledgeCmd()
+{
+    http_proxy=${bindhost}:${bindport} \
+               https_proxy=${bindhost}:${bindport} \
+               HTTP_PROXY=${bindhost}:${bindport} \
+               HTTPS_PROXY=${bindhost}:${bindport} \
+               $@
+}
 
 # ================  Usage  ===================
 function showUsage()
@@ -136,7 +143,7 @@ function showUsage()
     usage:
         ${BASENAME} <option> [value]
 
-    option: 
+    option:
         on              trun on proxy
         off             trun off proxy
         status          show proxy run status
@@ -145,6 +152,7 @@ function showUsage()
         current         show current proxy config
         set             select proxy config
         mkdesktop       make a desktop entry to switch on
+        cmd             run command with
     "
 }
 
@@ -170,6 +178,9 @@ case ${CMD} in
         ;;
     "mkdesktop" )
         ssledgeMkDesktop
+        ;;
+    "cmd" )
+        ssledgeCmd $@
         ;;
     * )
         showUsage
