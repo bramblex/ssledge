@@ -66,6 +66,11 @@ function ssledgeSet()
 {
     rm ${PROXY_CURRENT_CONFIG} &> /dev/null
     ln -s ${PROXY_CONFIG_DIR}/proxy_${1}.config ${PROXY_CURRENT_CONFIG}
+
+    if __isRunning__ 
+    then
+        ssledgeOn
+    fi
 }
 
 # ================ List ==================
@@ -99,10 +104,15 @@ function ssledgeOff()
     ifFailed
 }
 
+function __isRunning__()
+{
+    ps -p $(cat ${PID_FILE} 2>/dev/null) &> /dev/null
+}
+
 function ssledgeStatus()
 {
     echo -ne "Status: "
-    if ps -p $(cat ${PID_FILE} 2>/dev/null) &> /dev/null
+    if __isRunning__
     then
         echo "ON"
     else
